@@ -13,6 +13,9 @@ print lstWs
 dd.setCurrentWorksheet("MyFirstWorksheet")
 lstData=[45,78,67]
 dd.insertRow(lstData)
+dd.setColumnWidth([150,250,45,30],[1,3])
+lstData =  [ 34 , [33,66,343,56] , [ "sdf" ,56,78] ]  
+dd.insertMergedRow(lstData)
 dd.writeXmlss("temp.xml")
 #default xmlss namespace map
 #import os

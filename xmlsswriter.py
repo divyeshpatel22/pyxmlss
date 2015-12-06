@@ -335,6 +335,42 @@ class XmlssWriter(XmlssBase):
 				print worksheetName
 				lstWorkSheetName.append(worksheetName)
 			return lstWorkSheetName
+
+	def setColumnWidth(self,lstColumnWidths=[],lstColumnIndex=None):
+		'''this method is used set the column width in the current worksheet'''
+
+		if self._xmlssWorkSheet ==None :
+			print "***E Please select current worksheet"
+			return 1
+
+		if len(lstColumnWidths) == 0:
+			print "***E Please provide valid list of column widths"
+			return 1
+		#etree.Element(etree.QName(self._xmlssNameSpaceMap["ss"],"Cell"))
+#ataElem.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"Type")] = "String"
+
+		if lstColumnIndex == None:
+			
+			for colIndex in range(1,len(lstColumnWidths)+1):
+				colElement = etree.Element(etree.QName(self._xmlssNameSpaceMap["ss"],"Column"))
+				colElement.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"Width")] = "{0}".format(lstColumnWidths[colIndex -1 ])
+				self._xmlssCurrenWSTable.insert(colIndex-1,colElement)
+
+		else:
+			lastsetColumnIndex = lstColumnIndex[-1]
+			for colIndex in range(1,len(lstColumnWidths)+1):
+				if colIndex <= len(lstColumnIndex):
+					colElement = etree.Element(etree.QName(self._xmlssNameSpaceMap["ss"],"Column"))
+					colElement.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"Width")] = "{0}".format(lstColumnWidths[colIndex -1 ])
+					colElement.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"Index")] = "{0}".format(lstColumnIndex[colIndex -1 ])
+				else :
+					lastsetColumnIndex += 1
+					colElement = etree.Element(etree.QName(self._xmlssNameSpaceMap["ss"],"Column"))
+					colElement.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"Width")] = "{0}".format(lstColumnWidths[colIndex -1 ])
+					colElement.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"Index")] = "{0}".format(lastsetColumnIndex)
+				self._xmlssCurrenWSTable.insert(colIndex-1,colElement)
+		
+	
 		
 	def insertRow (self,lstData,styleName = None):
 		'''this method is used to insert one dimensional list data in the current selected worksheet.'''
@@ -363,6 +399,106 @@ class XmlssWriter(XmlssBase):
 		
 		#finally insert new row to current worksheet table
 		self._xmlssCurrenWSTable.append(rowElem)
+
+	def insertMergedRow (self,lstData,styleName = None):
+		'''This method is used to insert nested data till two dimensions and will merge the row based on the data.
+			 the first value should not be nested. 
+				e.g [[34,54],[45,65]] is not allowed
+				but [34,[33,66,343,56],["dfsd",56,78]...] is allowed
+		'''
+
+		if self._xmlssWorkSheet ==None :
+			print "***E Please select current worksheet"
+			return 1
+			
+		#Style Name check
+		if styleName != None:
+			lstStyleElems = self._xmlssDoc.xpath("ss:Workbook/ss:Styles/ss:Style[@ss:Name='{0}']".format(styleName),namespaces=self._xmlssXPathNameSpaceMap)
+			if len(lstStyleElems) == 0: 
+				print "***E Style {0} doesn't exist in the current workbook".format(styleName)
+				return 1
+
+		if lstData != None and isinstance(lstData[0],list):
+			print "***E please provice valid data to insert in the row."
+			return 1
+			
+
+		#to check that the data is nested list or not.
+		isDataNested = any(isinstance(i, list) for i in lstData)
+		if isDataNested:
+			dictMergedRows={}
+			mergeRowIndex = 0
+			firstRowElem = etree.Element(etree.QName(self._xmlssNameSpaceMap["ss"],"Row"))
+			firstRowFirstCell = None
+			for colIndex in range(0,len(lstData)):
+				print "***M colIndex {0}".format(colIndex)
+				if isinstance(lstData[colIndex],list):
+					lstNestedData = lstData[colIndex]
+					#insert the first item of the entry of the list 
+					cellElem = etree.Element(etree.QName(self._xmlssNameSpaceMap["ss"],"Cell"))
+					if firstRowFirstCell == None:
+						firstRowFirstCell = cellElem
+					if styleName != None:
+						cellElem.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"StyleID")] = styleName
+
+					dataElem = etree.Element(etree.QName(self._xmlssNameSpaceMap["ss"],"Data"))
+					dataElem.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"Type")] = "String"
+					dataElem.text = "{0}".format(lstNestedData[0])
+					cellElem.append(dataElem)
+					firstRowElem.append(cellElem)
+					#create dictionary of the remanining items.
+					lstNestedData = lstNestedData[1:]
+					rowIndex = 1
+					for actData in lstNestedData:
+						if rowIndex in dictMergedRows:
+							dictMergedRows[rowIndex].append(colIndex+1)
+							dictMergedRows[rowIndex].append(actData)
+						else:
+							dictMergedRows[rowIndex] = []
+							dictMergedRows[rowIndex].append(colIndex+1)
+							dictMergedRows[rowIndex].append(actData)
+						rowIndex+=1
+
+					if mergeRowIndex < rowIndex:
+						mergeRowIndex = rowIndex
+				else:
+					cellElem = etree.Element(etree.QName(self._xmlssNameSpaceMap["ss"],"Cell"))
+					if firstRowFirstCell == None:
+						firstRowFirstCell = cellElem
+					if styleName != None:
+						cellElem.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"StyleID")] = styleName
+
+					dataElem = etree.Element(etree.QName(self._xmlssNameSpaceMap["ss"],"Data"))
+					dataElem.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"Type")] = "String"
+					dataElem.text = "{0}".format(lstData[colIndex])
+					cellElem.append(dataElem)
+					firstRowElem.append(cellElem)
+			#insert the first row 
+			
+			firstRowFirstCell.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"MergeDown")] = "{0}".format(mergeRowIndex)		
+			self._xmlssCurrenWSTable.append(firstRowElem)			
+			#now insert the remaining rows to the current worksheet table
+			print dictMergedRows	
+			for rows in range (1,mergeRowIndex):
+				currentRow = dictMergedRows[rows]
+				mergedRowElem = etree.Element(etree.QName(self._xmlssNameSpaceMap["ss"],"Row"))
+				for j in range (0,len(currentRow),2):
+					cellIndex = currentRow[j]
+					cellData = currentRow[j+1]
+					cellElem = etree.Element(etree.QName(self._xmlssNameSpaceMap["ss"],"Cell"))
+					cellElem.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"Index")] = "{0}".format(cellIndex)				
+					if styleName != None:
+						cellElem.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"StyleID")] = styleName
+
+					dataElem = etree.Element(etree.QName(self._xmlssNameSpaceMap["ss"],"Data"))
+					dataElem.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"Type")] = "String"
+					dataElem.text = "{0}".format(cellData)
+					cellElem.append(dataElem)
+					mergedRowElem.append(cellElem)
+				self._xmlssCurrenWSTable.append(mergedRowElem)							
+		else:
+			self.insertRow(lstData)
+		
 		
 		
 		
