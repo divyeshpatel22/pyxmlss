@@ -30,8 +30,9 @@ class XmlssBase:
 	_xmlssDocPropNSMap = {None:_xmlnsO}
 	_xmlssDefaultNSMap = {None:"urn:schemas-microsoft-com:office:spreadsheet"}
 
-	#XMLSS current worksheet name will be stored in this variable
+	#XMLSS current worksheet element name will be stored in this variable
 	_xmlssWorkSheet = None
+	_xmlssWorkSheetName = None
 	_xmlssCurrenWSTable = None
 	_debug = 0
 	
