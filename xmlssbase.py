@@ -34,6 +34,7 @@ class XmlssBase:
 	_xmlssWorkSheet = None
 	_xmlssWorkSheetName = None
 	_xmlssCurrenWSTable = None
+	_xmlssCurrentRowIndex = None
 	_debug = 0
 	
 	#Constructor to create instance of the XmlssBase

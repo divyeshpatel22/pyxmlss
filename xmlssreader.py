@@ -17,9 +17,10 @@ class XmlssReader(XmlssBase):
 			print "in readXmlss"
 		if os.path.isfile(fileName):
 			self._xmlssDoc = etree.parse(fileName,self._parser)
-			print dir(self._xmlssDoc.getroot())
-			print self._xmlssDoc.getroot().prefix
-			print dir(self._xmlssDoc.getroot().tag)
+			#print dir(self._xmlssDoc.getroot())
+			if self._debug:
+				print self._xmlssDoc.getroot().prefix
+			#print dir(self._xmlssDoc.getroot().tag)
 			rootElem = etree.QName(self._xmlssDoc.getroot())
 			if rootElem.localname != "Workbook":
 				print("***E The File {0} is not and XMLSS file please provide valid file".format(fileName))
@@ -60,39 +61,52 @@ class XmlssReader(XmlssBase):
 			
 	def getRowCount (self):
 		'''It will give the total no. of rows available in the worksheet'''		
-		totalRows = int (self._xmlssDoc.xpath("count(/ss:Workbook/ss:Worksheet[@ss:Name='{0}']/ss:Table/ss:Row".format(self._xmlssWorkSheetName),namespaces=self)._xmlssXPathNameSpaceMap)
+		totalRows = int(self._xmlssDoc.xpath("count(/ss:Workbook/ss:Worksheet[@ss:Name='{0}']/ss:Table/ss:Row)".format(self._xmlssWorkSheetName),namespaces=self._xmlssXPathNameSpaceMap))		
 		return totalRows
 
 		
 	def getActualRowCount (self):
 		'''It will return the actual row count after substracting the merged rows'''
 		
-		totalRows = getRowCount()		
-		lstMergedRows = self._xmlssDoc.xpath("/ss:Workbook/ss:Worksheet[@ss:Name='{0}']/ss:Table/ss:Row[@ss:MergeDown and position() = 1]".format(self._xmlssWorkSheetName),namespaces=self._xmlssXPathNameSpaceMap)
+		totalRows = self.getRowCount()		
+		lstMergedRows = self._xmlssDoc.xpath("/ss:Workbook/ss:Worksheet[@ss:Name='{0}']/ss:Table/ss:Row/ss:Cell[@ss:MergeDown and position() = 1]".format(self._xmlssWorkSheetName),namespaces=self._xmlssXPathNameSpaceMap)
 		
-		for mergedRowElem in lstMergedRows:
-			try:
-				mergedRowCount = mergedRowElem.attrib[QName(self._xmlssNameSpaceMap["ss"],"MergeDown")]
+		for mergedRowElem in lstMergedRows:			
+			try:				
+				mergedRowCount = mergedRowElem.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"MergeDown")]
 				totalRows -= int(mergedRowCount)
 			except:
 				print "Unexpected error:", sys.exc_info()[0]
-		return totalRows
+		return totalRows	
 		
 	def getRow(self,rowIndex):		
 		rowElem = self._xmlssDoc.xpath("/ss:Workbook/ss:Worksheet[@ss:Name='{0}']/ss:Table/ss:Row[position() = {1}]".format(self._xmlssWorkSheetName,rowIndex),namespaces=self._xmlssXPathNameSpaceMap)
-		
+		self._xmlssCurrentRowIndex = rowIndex
+		finalRowData = []
 		if rowElem != None and len(rowElem) > 0:
-			rowData=[]
-			
+			lstCellElem = rowElem[0].findall(etree.QName(self._xmlssNameSpaceMap["ss"],"Cell"))
+			cellIndex = 1
+			for CellElem in lstCellElem:
+				if etree.QName(self._xmlssNameSpaceMap["ss"],"Index") in CellElem.attrib:
+					curCellIndex = int(CellElem.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"Index")])
+					for i in range(cellIndex,curCellIndex):
+						finalRowData.append("")
+				else :
+					cellIndex+=1
+					
+				actData = CellElem.find(etree.QName(self._xmlssNameSpaceMap["ss"],"Data"))
+				finalRowData.append(actData.text)
+
+		return finalRowData		
 		
-		
-		
-		pass
+	#remaining items are 
+	#get merged row
+	#get next row
+	#getrows(i,j)
+	#get mergedRowIndexes.
 
 	#Constructor to create instance of the XmlssBase
 
 	# def __init__(debug=0):
 		# _debug=debug
-
-	
 	

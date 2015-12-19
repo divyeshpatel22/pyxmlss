@@ -322,10 +322,10 @@ class XmlssWriter(XmlssBase):
 		else:
 			self._xmlssWorkSheet = checkWorksheet[0]
 			worksheetTableElem = self._xmlssWorkSheet.find("ss:Table",namespaces=self._xmlssXPathNameSpaceMap)
-			if _debug:				
+			if self._debug:				
 				print "hi this is table {0}".format(worksheetTableElem)
 			self._xmlssCurrenWSTable = worksheetTableElem
-			self._xmlssWorkSheetName =  self._xmlssWorkSheet.attrib[QName(self._xmlssNameSpaceMap["ss"],"Name")]
+			self._xmlssWorkSheetName =  self._xmlssWorkSheet.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"Name")]
 
 	def setColumnWidth(self,lstColumnWidths=[],lstColumnIndex=None):
 		'''this method is used set the column width in the current worksheet'''
@@ -635,3 +635,6 @@ class XmlssWriter(XmlssBase):
 	def writeXmlss(self,oFileName):
 		''' This method is used to write XMLSS doument to particular file.'''		
 		self._xmlssDoc.write(oFileName,pretty_print=True,xml_declaration="xml version='2.0' encoding='UTF-8'")
+
+	# remainig item
+	# delete row
