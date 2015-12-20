@@ -6,7 +6,7 @@ from xmlssbase import XmlssBase
 
 class XmlssReader(XmlssBase):
 	'''
-	This is the Base xmlss reder class which contains the xmlss reading
+	This is the Base xmlss reader class which contains the xmlss reading
 	functionality related methods and properties.
 	'''
 	
@@ -83,11 +83,13 @@ class XmlssReader(XmlssBase):
 		rowElem = self._xmlssDoc.xpath("/ss:Workbook/ss:Worksheet[@ss:Name='{0}']/ss:Table/ss:Row[position() = {1}]".format(self._xmlssWorkSheetName,rowIndex),namespaces=self._xmlssXPathNameSpaceMap)
 		self._xmlssCurrentRowIndex = rowIndex
 		finalRowData = []
+		isMergedRow = 0
 		if rowElem != None and len(rowElem) > 0:
 			lstCellElem = rowElem[0].findall(etree.QName(self._xmlssNameSpaceMap["ss"],"Cell"))
-			cellIndex = 1
+			cellIndex = 1			
 			for CellElem in lstCellElem:
 				if etree.QName(self._xmlssNameSpaceMap["ss"],"Index") in CellElem.attrib:
+					isMergedRow = 1
 					curCellIndex = int(CellElem.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"Index")])
 					for i in range(cellIndex,curCellIndex):
 						finalRowData.append("")
@@ -96,14 +98,160 @@ class XmlssReader(XmlssBase):
 					
 				actData = CellElem.find(etree.QName(self._xmlssNameSpaceMap["ss"],"Data"))
 				finalRowData.append(actData.text)
+		else:
+			print "***E Worksheet{0} is not having row at index {1}".format(self._xmlssWorkSheetName,rowIndex)
+				
+		if isMergedRow == 1:
+			print "***W this row is part of merged row."
+		self._xmlssNextRowIndex = rowIndex+1
+		return finalRowData
 
-		return finalRowData		
+	
+	def getMergedRowIndexes(self):
+		lstMergedRows = self._xmlssDoc.xpath("/ss:Workbook/ss:Worksheet[@ss:Name='{0}']/ss:Table/ss:Row[ss:Cell[@ss:MergeDown and position() = 1]]".format(self._xmlssWorkSheetName),namespaces=self._xmlssXPathNameSpaceMap)
+		lstMergedRowIndexes = []
+		for mergedRowElem in lstMergedRows:		
+			mergedRowElemXpath = "count({0}/preceding-sibling::ss:Row)".format(self._xmlssDoc.getpath(mergedRowElem))
+			if self._debug:
+				print mergedRowElemXpath
+			indexOfMegredRow =  int(self._xmlssDoc.xpath(mergedRowElemXpath,namespaces=self._xmlssXPathNameSpaceMap)) + 1
+			lstMergedRowIndexes.append(indexOfMegredRow)
+		
+		return lstMergedRowIndexes
+	
+	def getMergedRow(self,rowIndex):
+		'''This method is used to get the data of the merged row.'''
+		if self._debug:					
+			print "in getMergedRow"
+		rowElem = self._xmlssDoc.xpath("/ss:Workbook/ss:Worksheet[@ss:Name='{0}']/ss:Table/ss:Row[position() = {1}]".format(self._xmlssWorkSheetName,rowIndex),namespaces=self._xmlssXPathNameSpaceMap)
+		self._xmlssCurrentRowIndex = rowIndex
+		finalRowData = []
+		isMergedRow = 0
+		MergeRowCount = 0
+		dictRowData = {}
+		totalColumnCount = 0
+		if rowElem != None and len(rowElem) > 0:			
+			lstCellElem = rowElem[0].findall(etree.QName(self._xmlssNameSpaceMap["ss"],"Cell"))
+			cellIndex = 1
+			if cellIndex == 1 and etree.QName(self._xmlssNameSpaceMap["ss"],"MergeDown") in lstCellElem[0].attrib:
+				MergeRowCount = int(lstCellElem[0].attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"MergeDown")])
+				for CellElem in lstCellElem:				
+					#first proces the current row and the process remainig merged rows.
+					actData = CellElem.find(etree.QName(self._xmlssNameSpaceMap["ss"],"Data"))
+					dictRowData[cellIndex] =  actData.text
+					cellIndex += 1
+				totalColumnCount = cellIndex
+			else:
+				print "***W row at Index {0} is not a merged row getting single row value.".format(rowIndex)
+				finalRowData = self.getRow(rowIndex)
+				if self._debug:		
+					print finalRowData
+					print "out getMergedRow"
+				return finalRowData
+		else:
+			print "***E Worksheet{0} is not having row at index {1}".format(self._xmlssWorkSheetName,rowIndex)
+		if self._debug:
+			print dictRowData
+			
+		#now add merged row data to dictionary
+		for i in range(1,MergeRowCount + 1):
+			curIndex = rowIndex + i
+			childRowElem = self._xmlssDoc.xpath("/ss:Workbook/ss:Worksheet[@ss:Name='{0}']/ss:Table/ss:Row[position() = {1}]".format(self._xmlssWorkSheetName,curIndex),namespaces=self._xmlssXPathNameSpaceMap)
+			if childRowElem != None and len(childRowElem) > 0:
+				lstCellElem = childRowElem[0].findall(etree.QName(self._xmlssNameSpaceMap["ss"],"Cell"))
+				curCellIndex = 2 
+				for CellElem in lstCellElem:
+					if etree.QName(self._xmlssNameSpaceMap["ss"],"Index") in CellElem.attrib:
+						#cell is having Index attribute so changes the current cell index
+						curCellIndex = int(CellElem.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"Index")])
+						if type(dictRowData[curCellIndex]) is list:
+							actData = CellElem.find(etree.QName(self._xmlssNameSpaceMap["ss"],"Data"))
+							dictRowData[curCellIndex].append(actData.text)
+						else:
+							tempDictData = dictRowData[curCellIndex]
+							dictRowData[curCellIndex] = [tempDictData]
+							actData = CellElem.find(etree.QName(self._xmlssNameSpaceMap["ss"],"Data"))
+							dictRowData[curCellIndex].append(actData.text)
+					else :
+						#cell is not having Index attribute use the incremented cell index for curent value
+						if type(dictRowData[curCellIndex]) is list:
+							actData = CellElem.find(etree.QName(self._xmlssNameSpaceMap["ss"],"Data"))
+							dictRowData[curCellIndex].append(actData.text)
+						else:
+							tempDictData = dictRowData[curCellIndex]
+							dictRowData[curCellIndex] = [tempDictData]
+							actData = CellElem.find(etree.QName(self._xmlssNameSpaceMap["ss"],"Data"))
+							dictRowData[curCellIndex].append(actData.text)
+					curCellIndex+=1					
+			else:
+				print "***E Worksheet{0} is not having row at merged row index {1}".format(self._xmlssWorkSheetName,i)
+		
+		for colIndex in range(1,totalColumnCount):
+			finalRowData.append(dictRowData[colIndex])	
+
+		self._xmlssNextRowIndex = rowIndex + MergeRowCount + 1
+		#now prepare final row data.
+		if self._debug:		
+			print finalRowData
+			print "out getMergedRow"
+		return finalRowData
+		
+	def getNextRow(self):
+		if self._xmlssNextRowIndex == None:
+			rowIndex = 1
+			rowElem = self._xmlssDoc.xpath("/ss:Workbook/ss:Worksheet[@ss:Name='{0}']/ss:Table/ss:Row[position() = {1}]".format(self._xmlssWorkSheetName,rowIndex),namespaces=self._xmlssXPathNameSpaceMap)			
+			if rowElem != None and len(rowElem) > 0:
+				CellElem = rowElem[0].find(etree.QName(self._xmlssNameSpaceMap["ss"],"Cell"))
+				if etree.QName(self._xmlssNameSpaceMap["ss"],"MergeDown") in CellElem.attrib:
+					return self.getMergedRow(rowIndex)
+				else:
+					return self.getRow(rowIndex)			
+			else:
+				print "***E Worksheet{0} is not having row at index {1}".format(self._xmlssWorkSheetName,rowIndex)
+		else:
+			rowIndex = self._xmlssNextRowIndex
+			rowElem = self._xmlssDoc.xpath("/ss:Workbook/ss:Worksheet[@ss:Name='{0}']/ss:Table/ss:Row[position() = {1}]".format(self._xmlssWorkSheetName,rowIndex),namespaces=self._xmlssXPathNameSpaceMap)			
+			if rowElem != None and len(rowElem) > 0:
+				CellElem = rowElem[0].find(etree.QName(self._xmlssNameSpaceMap["ss"],"Cell"))
+				if etree.QName(self._xmlssNameSpaceMap["ss"],"MergeDown") in CellElem.attrib:
+					return self.getMergedRow(rowIndex)
+				else:
+					return self.getRow(rowIndex)			
+			else:
+				print "***E Worksheet{0} is not having row at index {1}".format(self._xmlssWorkSheetName,rowIndex)
+				
+	def getRows(self,fromRowIndex,toRowIndex):
+	
+		if not (type(fromRowIndex) is int)  or  not ( type(toRowIndex) is int) or (fromRowIndex < 1) or (toRowIndex - fromRowIndex < 1) or (toRowIndex > self.getRowCount()):
+			print "***E please provide valid value of fromRowIndex and toRowIndex "
+			return None
+		else:
+			finalData = []
+			rowIndex = fromRowIndex
+			rowElem = self._xmlssDoc.xpath("/ss:Workbook/ss:Worksheet[@ss:Name='{0}']/ss:Table/ss:Row[position() = {1}]".format(self._xmlssWorkSheetName,rowIndex),namespaces=self._xmlssXPathNameSpaceMap)			
+			if rowElem != None and len(rowElem) > 0:
+				#get the initial row data 
+				CellElem = rowElem[0].find(etree.QName(self._xmlssNameSpaceMap["ss"],"Cell"))
+				if etree.QName(self._xmlssNameSpaceMap["ss"],"MergeDown") in CellElem.attrib:
+					 finalData.append(self.getMergedRow(rowIndex))
+				else:
+					finalData.append(self.getRow(rowIndex))
+				#now for further remainig rows
+				for i in range(1,(toRowIndex-fromRowIndex)+1):
+					finalData.append(self.getNextRow())
+			else:
+				print "***E Worksheet{0} is not having row at index {1}".format(self._xmlssWorkSheetName,rowIndex)
+				
+		return finalData
+			
+			#by default get the first row
+			
 		
 	#remaining items are 
-	#get merged row
-	#get next row
-	#getrows(i,j)
-	#get mergedRowIndexes.
+	#get merged row -- done
+	#get next row -- done
+	#getrows(i,j) 
+	#get mergedRowIndexes. -- done
 
 	#Constructor to create instance of the XmlssBase
 
