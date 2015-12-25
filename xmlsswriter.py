@@ -307,9 +307,13 @@ class XmlssWriter(XmlssBase):
 		
 	def deleteElem(self,lstElementToDelete):
 		'''This method is to delete a node in the xml file.'''
-		for elems in lstElementToDelete:
-			parentElem = elems.getparent()
-			parentElem.remove(elems)
+		if type(lstElementToDelete) is list:
+			for elems in lstElementToDelete:
+				parentElem = elems.getparent()
+				parentElem.remove(elems)
+		else:
+			parentElem = lstElementToDelete.getparent()
+			parentElem.remove(lstElementToDelete)
 	
 	def setCurrentWorksheet (self,workSheetName):
 		'''This method will set the current worksheet on which further processing will be done.'''
@@ -631,6 +635,64 @@ class XmlssWriter(XmlssBase):
 			self.insertRowStandOut(lstData)
 		
 		
+	def deleteRow(self,lstRowIndexes):
+		
+		if type(lstRowIndexes) is list:
+			for rowIndex in sorted(lstRowIndexes,key=int,reverse=True):
+				lstRow = self._xmlssDoc.xpath("/ss:Workbook/ss:Worksheet[@ss:Name='{0}']/ss:Table/ss:Row[position() = {1}]".format(self._xmlssWorkSheetName,rowIndex),namespaces=self._xmlssXPathNameSpaceMap)
+				#decide that current row is merged row or part of merged row or  not.
+				
+				if lstRow != None and len(lstRow) > 0:
+					rowElem = lstRow[0]
+					#decide that current row is merged row or part of merged row or  not.
+					firstCellElem = rowElem.find(etree.QName(self._xmlssNameSpaceMap["ss"],"Cell"))
+					if firstCellElem != None:
+						if etree.QName(self._xmlssNameSpaceMap["ss"],"MergeDown") in firstCellElem.attrib:
+							#means this is the merged row
+							lstDeleteElem = [rowElem]
+							mergeDownRows = int(firstCellElem.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"MergeDown")])
+							for i in range(0,mergeDownRows):
+								rowElem = rowElem.getnext()
+								if rowElem != None:
+									lstDeleteElem.append(rowElem)
+							self.deleteElem(lstDeleteElem)
+						else:
+							if etree.QName(self._xmlssNameSpaceMap["ss"],"Index") in firstCellElem.attrib:
+								print"***E Row at {0} is part of the merged row so it cannot be deleted".format(rowIndex)
+							else:
+								self.deleteElem(rowElem)
+					else:
+						self.deleteElem(rowElem)
+				else :
+					print "***E row at index {0} doesn't exist please give valid row index to delete".format(rowIndex)
+		else:		
+			lstRow = self._xmlssDoc.xpath("/ss:Workbook/ss:Worksheet[@ss:Name='{0}']/ss:Table/ss:Row[position() = {1}]".format(self._xmlssWorkSheetName,lstRowIndexes),namespaces=self._xmlssXPathNameSpaceMap)
+			#decide that current row is merged row or part of merged row or  not.
+			
+			if lstRow != None and len(lstRow) > 0:
+				rowElem = lstRow[0]
+				#decide that current row is merged row or part of merged row or  not.
+				firstCellElem = rowElem.find(etree.QName(self._xmlssNameSpaceMap["ss"],"Cell"))
+				if firstCellElem != None:
+					if etree.QName(self._xmlssNameSpaceMap["ss"],"MergeDown") in firstCellElem.attrib:
+						#means this is the merged row
+						lstDeleteElem = [rowElem]
+						mergeDownRows = int(firstCellElem.attrib[etree.QName(self._xmlssNameSpaceMap["ss"],"MergeDown")])
+						for i in range(0,mergeDownRows):
+							rowElem = rowElem.getnext()
+							if rowElem != None:
+								lstDeleteElem.append(rowElem)
+						self.deleteElem(lstDeleteElem)
+					else:
+						if etree.QName(self._xmlssNameSpaceMap["ss"],"Index") in firstCellElem.attrib:
+							print"***E Row at {0} is part of the merged row so it cannot be deleted".format(lstRowIndexes)
+						else:
+							self.deleteElem(rowElem)
+				else:
+					self.deleteElem(rowElem)
+			else :
+				print "***E row at index {0} doesn't exist please give valid row index to delete".format(lstRowIndexes)
+			
 		
 	def writeXmlss(self,oFileName):
 		''' This method is used to write XMLSS doument to particular file.'''		
