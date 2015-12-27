@@ -1,2 +1,2 @@
 # pyxmlss
-python pacage to generate XMLSS
+python package to generate XMLSS
