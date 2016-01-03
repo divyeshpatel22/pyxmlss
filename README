@@ -1,0 +1,9 @@
+# pyxmlss
+
+Don't Use CSV Use XMLSS.
+python package to generate xml file in XMLSS Format.
+
+XMLSS can be directly viewed in the spread sheet application like MS Excel, Libre office etc..
+
+pyxmlss is a tool to generate report/data in the XMLSS format.
+
