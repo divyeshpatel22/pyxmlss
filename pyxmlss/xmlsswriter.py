@@ -137,12 +137,14 @@ class XmlssWriter(XmlssBase):
 		'''
 
 		workbookElem = self._xmlssDoc.getroot()
-		stylesElem= self._xmlssDoc.xpath("//ss:Workbook/ss:Styles",namespaces=self._xmlssXPathNameSpaceMap) 
+		lstStylesElem = self._xmlssDoc.xpath("//ss:Workbook/ss:Styles",namespaces=self._xmlssXPathNameSpaceMap) 
 
 		#check that styles element exist and create one if it doesn't exist
-		if len(stylesElem) == 0 :
+		if len(lstStylesElem) == 0 :
 			stylesElem=etree.Element(etree.QName(self._xmlssNameSpaceMap["ss"],"Styles"))
 			workbookElem.append(stylesElem)
+		else:
+			stylesElem = lstStylesElem[0]
 
 		styleId="s"
 		tempstyleId=1

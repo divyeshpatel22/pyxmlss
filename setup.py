@@ -31,7 +31,6 @@ setup(
 
     # Dependent packages (distributions)
     install_requires=[
-        "dateutil",
 				"lxml"
     ],
 )
